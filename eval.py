@@ -32,9 +32,9 @@ meta_file = os.path.join(args_eval.save_folder, 'metadata.pkl')
 model_file = os.path.join(args_eval.save_folder, 'model.pt')
 
 args = pickle.load(open(meta_file, 'rb'))['args']
-
+print(args)
 args.cuda = not args_eval.no_cuda and torch.cuda.is_available()
-args.batch_size = 100
+args.batch_size = 64
 args.dataset = args_eval.dataset
 args.seed = 0
 
@@ -45,15 +45,16 @@ if args.cuda:
 
 device = torch.device('cuda' if args.cuda else 'cpu')
 
-dataset = utils.PathDataset(
-    hdf5_file=args.dataset, path_length=args_eval.num_steps)
+# dataset = utils.PathDataset(
+#     hdf5_file=args.dataset, path_length=args_eval.num_steps)
+dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset')
 eval_loader = data.DataLoader(
     dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 
 # Get data sample
 obs = eval_loader.__iter__().next()[0]
-input_shape = obs[0][0].size()
-
+input_shape = obs[0].size()
+print(input_shape)
 model = modules.ContrastiveSWM(
     embedding_dim=args.embedding_dim,
     hidden_dim=args.hidden_dim,
@@ -65,12 +66,12 @@ model = modules.ContrastiveSWM(
     ignore_action=args.ignore_action,
     copy_action=args.copy_action,
     encoder=args.encoder).to(device)
-
+print(model_file)
 model.load_state_dict(torch.load(model_file))
 model.eval()
 
-# topk = [1, 5, 10]
-topk = [1]
+topk = [1, 5, 10]
+# topk = [1]
 hits_at = defaultdict(int)
 num_samples = 0
 rr_sum = 0
@@ -81,22 +82,25 @@ next_states = []
 with torch.no_grad():
 
     for batch_idx, data_batch in enumerate(eval_loader):
-        data_batch = [[t.to(
-            device) for t in tensor] for tensor in data_batch]
-        observations, actions = data_batch
+        # data_batch = [[t.to(
+        #     device) for t in tensor] for tensor in data_batch]
+        # print(data_batch)
+        obs, actions, next_obs = data_batch
+        obs = obs.cuda()
+        actions = actions.cuda()
+        next_obs = next_obs.cuda()
+        # if observations[0].size(0) != args.batch_size:
+        #     continue
 
-        if observations[0].size(0) != args.batch_size:
-            continue
-
-        obs = observations[0]
-        next_obs = observations[-1]
+        # obs = observations[0]
+        # next_obs = observations[-1]
 
         state = model.obj_encoder(model.obj_extractor(obs))
         next_state = model.obj_encoder(model.obj_extractor(next_obs))
-
+        
         pred_state = state
         for i in range(args_eval.num_steps):
-            pred_trans = model.transition_model(pred_state, actions[i])
+            pred_trans = model.transition_model(pred_state, actions)
             pred_state = pred_state + pred_trans
 
         pred_states.append(pred_state.cpu())

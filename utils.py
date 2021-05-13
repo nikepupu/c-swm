@@ -6,10 +6,14 @@ import numpy as np
 
 import torch
 from torch.utils import data
-from torch import nn
+from torch import mode, nn
 
 import matplotlib.pyplot as plt
-
+from torchvision.io import read_image
+from torchvision.transforms import Resize
+import pickle
+import torchvision
+from transformers import RobertaTokenizer
 EPS = 1e-17
 
 
@@ -156,10 +160,68 @@ class StateTransitionsDataset(data.Dataset):
         obs = to_float(self.experience_buffer[ep]['obs'][step])
         action = self.experience_buffer[ep]['action'][step]
         next_obs = to_float(self.experience_buffer[ep]['next_obs'][step])
-
+       
         return obs, action, next_obs
 
+class ThorTransitionsDataset(data.Dataset):
+    """Create dataset of (o_t, a_t, o_{t+1}) transitions from replay buffer."""
 
+    def __init__(self, path):
+        """
+        Args:
+            hdf5_file (string): Path to the hdf5 file that contains experience
+                buffer
+        """
+        self.data_root = path
+        self.dirs = os.listdir(path)[30000:]
+        
+        self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+        with open('/home/nikepupu/create_dataset/actions.pickle', 'rb') as handle:
+            self.actions = pickle.load(handle)
+        # Build table for conversion between linear idx -> episode/step idx
+        
+
+    def __len__(self):
+        return len(self.dirs)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        # if isinstance(idx, int):
+        #     idx = [idx]
+        
+        # obs = []
+        # action = []
+        # next_obs = []
+        
+        resize = Resize((50,50))
+       
+        path = os.path.join(self.data_root, str(idx))
+        pre_path = os.path.join(path, 'pre.jpeg')
+        post_path = os.path.join(path, 'post.jpeg')
+        pre_image = (read_image(pre_path,))
+        post_image = (read_image(post_path))
+
+        pre_image = pre_image / 255.0
+        post_image = post_image / 255.0
+        
+        action_file_path = os.path.join(path, 'action.txt')
+        with open(action_file_path, 'r') as f:
+            a = str(f.read())
+        
+        with open(path+"/low_instruction.pickle", 'rb') as handle:
+            low_descs = pickle.load( handle)
+            
+        with open(path+"/high_instruction.pickle", 'rb') as handle:
+            task_desc = pickle.load(handle)
+            
+        goal_encoding = self.tokenizer(task_desc[0])['input_ids']
+        instruction_encoding = self.tokenizer(low_descs[0] )['input_ids']
+       
+        
+        return pre_image, self.actions.index(a), post_image, instruction_encoding, goal_encoding 
+    
 class PathDataset(data.Dataset):
     """Create dataset of {(o_t, a_t)}_{t=1:N} paths from replay buffer.
     """

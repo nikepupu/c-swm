@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+checkpoints/
+data/
+.vscode/
+
 # Distribution / packaging
 .Python
 build/

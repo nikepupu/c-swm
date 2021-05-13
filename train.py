@@ -12,10 +12,10 @@ from torch.utils import data
 import torch.nn.functional as F
 
 import modules
-
+from torch.nn.utils.rnn import pad_sequence
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch-size', type=int, default=1024,
+parser.add_argument('--batch-size', type=int, default=32,
                     help='Batch size.')
 parser.add_argument('--epochs', type=int, default=100,
                     help='Number of training epochs.')
@@ -33,9 +33,9 @@ parser.add_argument('--hidden-dim', type=int, default=512,
                     help='Number of hidden units in transition MLP.')
 parser.add_argument('--embedding-dim', type=int, default=2,
                     help='Dimensionality of embedding.')
-parser.add_argument('--action-dim', type=int, default=4,
+parser.add_argument('--action-dim', type=int, default=503,
                     help='Dimensionality of action space.')
-parser.add_argument('--num-objects', type=int, default=5,
+parser.add_argument('--num-objects', type=int, default=20,
                     help='Number of object slots in model.')
 parser.add_argument('--ignore-action', action='store_true', default=False,
                     help='Ignore action in GNN transition model.')
@@ -85,7 +85,7 @@ if not os.path.exists(save_folder):
 meta_file = os.path.join(save_folder, 'metadata.pkl')
 model_file = os.path.join(save_folder, 'model.pt')
 log_file = os.path.join(save_folder, 'log.txt')
-
+print(model_file)
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger()
 logger.addHandler(logging.FileHandler(log_file, 'a'))
@@ -93,17 +93,33 @@ print = logger.info
 
 pickle.dump({'args': args}, open(meta_file, "wb"))
 
-device = torch.device('cuda' if args.cuda else 'cpu')
+device =  torch.device('cuda' if args.cuda else 'cpu')
+dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset')
 
-dataset = utils.StateTransitionsDataset(
-    hdf5_file=args.dataset)
-train_loader = data.DataLoader(
-    dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+
+def collate_fn(batch):
+    pre_image, action, post_image, low_descs, task_desc = zip(*batch)
+  
+    low_descs = [torch.LongTensor(i) for i in low_descs]
+    task_desc = [torch.LongTensor(i) for i in task_desc]
+    
+    low_descs = pad_sequence(low_descs, batch_first=True, padding_value=1)
+    task_desc = pad_sequence(task_desc, batch_first=True, padding_value=1)
+    return torch.stack(pre_image, 0), torch.tensor(action), torch.stack(post_image, 0), low_descs, task_desc
+
+
+train_loader = data.DataLoader( dataset, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=True, num_workers=0)
+# print(train_loader.__iter__().next())
 
 # Get data sample
 obs = train_loader.__iter__().next()[0]
-input_shape = obs[0].size()
 
+input_shape = obs[0].size()
+# print(input_shape)
+# print(input_shape)
+# print(args.batch_size )
+
+args.action_dim = 503
 model = modules.ContrastiveSWM(
     embedding_dim=args.embedding_dim,
     hidden_dim=args.hidden_dim,
@@ -157,12 +173,22 @@ for epoch in range(1, args.epochs + 1):
     train_loss = 0
 
     for batch_idx, data_batch in enumerate(train_loader):
+        
         data_batch = [tensor.to(device) for tensor in data_batch]
+        obs, action, next_obs, low_descs, task_desc = data_batch
+        obs = list(obs)
+        action = list(action)
+        next_obs = list(next_obs)
+        low_descs = list(low_descs)
+        task_desc = list(task_desc)
+        
         optimizer.zero_grad()
 
         if args.decoder:
             optimizer_dec.zero_grad()
-            obs, action, next_obs = data_batch
+            obs, action, next_obs, low_descs, task_desc = data_batch
+            
+           
             objs = model.obj_extractor(obs)
             state = model.obj_encoder(objs)
 
