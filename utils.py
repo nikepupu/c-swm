@@ -234,9 +234,12 @@ class ThorTransitionsDataset(data.Dataset):
         except:
           goal_encoding = torch.zeros(10)
           insturction_encoding = torch.zeros(10)
-       
-        
-        return pre_image, self.actions.index(a), post_image, instruction_encoding, goal_encoding 
+        try:
+            action_index = self.actions.index(a)
+        except:
+            action_index = 0
+
+        return pre_image, action_index, post_image, instruction_encoding, goal_encoding 
     
 class PathDataset(data.Dataset):
     """Create dataset of {(o_t, a_t)}_{t=1:N} paths from replay buffer.

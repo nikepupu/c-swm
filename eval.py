@@ -10,6 +10,7 @@ import numpy as np
 from collections import defaultdict
 
 import modules
+from torch.nn.utils.rnn import pad_sequence
 
 torch.backends.cudnn.deterministic = True
 
@@ -38,6 +39,17 @@ args.batch_size = 64
 args.dataset = args_eval.dataset
 args.seed = 0
 
+def collate_fn(batch):
+    pre_image, action, post_image, low_descs, task_desc = zip(*batch)
+
+    low_descs = [torch.LongTensor(i) for i in low_descs]
+    task_desc = [torch.LongTensor(i) for i in task_desc]
+
+    low_descs = pad_sequence(low_descs, batch_first=True, padding_value=1)
+    task_desc = pad_sequence(task_desc, batch_first=True, padding_value=1)
+    return torch.stack(pre_image, 0), torch.tensor(action), torch.stack(post_image, 0), low_descs, task_desc
+
+
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
 if args.cuda:
@@ -47,9 +59,9 @@ device = torch.device('cuda' if args.cuda else 'cpu')
 
 # dataset = utils.PathDataset(
 #     hdf5_file=args.dataset, path_length=args_eval.num_steps)
-dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset')
+dataset = utils.ThorTransitionsDataset('/home/steven/dataset_validation_unseen_action')
 eval_loader = data.DataLoader(
-    dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+    dataset, batch_size=args.batch_size, shuffle=False, collate_fn = collate_fn, num_workers=4)
 
 # Get data sample
 obs = eval_loader.__iter__().next()[0]
@@ -85,7 +97,7 @@ with torch.no_grad():
         # data_batch = [[t.to(
         #     device) for t in tensor] for tensor in data_batch]
         # print(data_batch)
-        obs, actions, next_obs = data_batch
+        obs, actions, next_obs, low_descs, task_desc = data_batch
         obs = obs.cuda()
         actions = actions.cuda()
         next_obs = next_obs.cuda()
