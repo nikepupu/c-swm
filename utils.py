@@ -179,10 +179,23 @@ class ThorTransitionsDataset(data.Dataset):
         with open('/home/nikepupu/create_dataset/actions.pickle', 'rb') as handle:
             self.actions = pickle.load(handle)
         # Build table for conversion between linear idx -> episode/step idx
-        
+        self.cnt = 0
+        self.file_index = {}
+        self.desc_index = {}
+        for i in range(len(self.dirs)):
+           path = os.path.join(self.data_root, str(i))
+           with open(path+"/high_instruction.pickle", 'rb') as handle:
+                task_desc = pickle.load(handle)
+                if task_desc:      
+                    for j in range(len(task_desc)):
+                        self.file_index[self.cnt+j] = i
+                        self.desc_index[self.cnt+j] = j
+
+                    self.cnt += len(task_desc)
 
     def __len__(self):
-        return len(self.dirs)
+        # return len(self.dirs)
+        return self.cnt
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
@@ -197,7 +210,7 @@ class ThorTransitionsDataset(data.Dataset):
         
         resize = Resize((50,50))
        
-        path = os.path.join(self.data_root, str(idx))
+        path = os.path.join(self.data_root, str(self.file_index[idx]))
         pre_path = os.path.join(path, 'pre.jpeg')
         post_path = os.path.join(path, 'post.jpeg')
         pre_image = (read_image(pre_path,))
@@ -216,8 +229,12 @@ class ThorTransitionsDataset(data.Dataset):
         with open(path+"/high_instruction.pickle", 'rb') as handle:
             task_desc = pickle.load(handle)
             
-        goal_encoding = self.tokenizer(task_desc[0])['input_ids']
-        instruction_encoding = self.tokenizer(low_descs[0] )['input_ids']
+        try:    
+          goal_encoding = self.tokenizer(task_desc[self.desc_index[idx]])['input_ids']
+          instruction_encoding = self.tokenizer(low_descs[self.desc_index[idx]] )['input_ids']
+        except:
+          goal_encoding = torch.ones(10)
+          insturction_encoding = torch.ones(10)
        
         try:
             action_index = self.actions.index(a)
