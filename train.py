@@ -15,7 +15,7 @@ import modules
 from torch.nn.utils.rnn import pad_sequence
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch-size', type=int, default=2,
+parser.add_argument('--batch-size', type=int, default=64,
                     help='Batch size.')
 parser.add_argument('--epochs', type=int, default=100,
                     help='Number of training epochs.')

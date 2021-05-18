@@ -379,11 +379,14 @@ class EncoderMLP(nn.Module):
           
         h = self.act1(self.fc1(h_flat))
         if ins2 is not None:
-            padded1 = ins2.repeat(1,self.num_objects//2, 1)
-            
+            ins2 = ins2.unsqueeze(1)
+            padded1 = ins2.repeat(1,self.num_objects, 1)
+          
             h += padded1
+            
         if ins3 is not None:
-            padded2 = ins3.repeat(1,self.num_objects//2, 1)
+            ins3 = ins3.unsqueeze(1)
+            padded2 = ins3.repeat(1,self.num_objects, 1)
             h += padded2
             
         h = self.act2(self.ln(self.fc2(h)))
