@@ -40,7 +40,11 @@ class ContrastiveSWM(nn.Module):
         self.ignore_action = ignore_action
         self.copy_action = copy_action
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
-        self.roberta = RobertaModel.from_pretrained('roberta-base')
+        # self.roberta = RobertaModel.from_pretrained('roberta-base')
+        
+        self.lstm = nn.LSTM(768,256, 2 ,batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(hidden_dim*2, hidden_dim)
+        self.embed = nn.Embedding(50000, 768)
         
         
         self.pos_loss = 0
@@ -105,9 +109,13 @@ class ContrastiveSWM(nn.Module):
         return self.energy(state, action, next_state).mean()
 
     def contrastive_loss(self, obs, action, next_obs, goal_descs, instruction_descs):
-        language_encoding1 = self.roberta(goal_descs).pooler_output
-        language_encoding2 = self.roberta(instruction_descs).pooler_output 
-        language_encoding = language_encoding1 + language_encoding2
+        
+        language_encoding1, _ = self.lstm(self.embed(goal_descs) )
+        language_encoding2, _ = self.lstm(self.embed(instruction_descs))
+        
+        language_encoding = language_encoding1[:,-1,:] + language_encoding2[:,-1,:]
+        
+       
         objs = self.obj_extractor(obs)
         next_objs = self.obj_extractor(next_obs)
       
@@ -339,7 +347,7 @@ class EncoderMLP(nn.Module):
 
         self.num_objects = num_objects
         self.input_dim = input_dim
-        print(self.input_dim)
+       
         self.fc1 = nn.Linear(self.input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, output_dim)
@@ -351,32 +359,32 @@ class EncoderMLP(nn.Module):
 
     def forward(self, ins, ins2=None, ins3=None):
         h_flat = ins.view(-1, self.num_objects, self.input_dim)  
-        h_ins2 = None
-        h_ins3 = None
         
-        if not ins2 == None:
-            l = ins2.shape[1]
-            diff = self.input_dim - l
-            zeros = torch.zeros( (ins2.shape[0], diff)).cuda()
-            padded = torch.cat( (ins2, zeros),  1).unsqueeze(1)
-            padded = padded.repeat(1,self.num_objects, 1)
-            h_ins2 = self.act1(self.fc1(padded))
+        
+        # if not ins2 == None:
+        #     l = ins2.shape[1]
+        #     diff = self.input_dim - l
+        #     zeros = torch.zeros( (ins2.shape[0], diff)).cuda()
+        #     padded = torch.cat( (ins2, zeros),  1).unsqueeze(1)
+        #     padded = padded.repeat(1,self.num_objects, 1)
+        #     h_ins2 = self.act1(self.fc1(padded))
             
-        if not ins3 == None:
-            l = ins3.shape[1]
-            diff = self.input_dim - l
-            zeros = torch.zeros( (ins3.shape[0], diff)).cuda()
-            padded = torch.cat( (ins3, zeros),  1).unsqueeze(1)
-            padded = padded.repeat(1,self.num_objects, 1)
-            h_ins3 = self.act1(self.fc1(padded))
+        # if not ins3 == None:
+        #     l = ins3.shape[1]
+        #     diff = self.input_dim - l
+        #     zeros = torch.zeros( (ins3.shape[0], diff)).cuda()
+        #     padded = torch.cat( (ins3, zeros),  1).unsqueeze(1)
+        #     padded = padded.repeat(1,self.num_objects, 1)
+        #     h_ins3 = self.act1(self.fc1(padded))
           
         h = self.act1(self.fc1(h_flat))
-        
-        if not h_ins2 == None:
-            h += h_ins2
+        if ins2 is not None:
+            padded1 = ins2.repeat(1,self.num_objects//2, 1)
             
-        if not h_ins3 == None:
-            h += h_ins3
+            h += padded1
+        if ins3 is not None:
+            padded2 = ins3.repeat(1,self.num_objects//2, 1)
+            h += padded2
             
         h = self.act2(self.ln(self.fc2(h)))
         return self.fc3(h)

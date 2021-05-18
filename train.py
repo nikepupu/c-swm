@@ -15,7 +15,7 @@ import modules
 from torch.nn.utils.rnn import pad_sequence
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--batch-size', type=int, default=32,
+parser.add_argument('--batch-size', type=int, default=2,
                     help='Batch size.')
 parser.add_argument('--epochs', type=int, default=100,
                     help='Number of training epochs.')
@@ -94,7 +94,7 @@ print = logger.info
 pickle.dump({'args': args}, open(meta_file, "wb"))
 
 device =  torch.device('cuda' if args.cuda else 'cpu')
-dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset')
+dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset_train')
 
 
 def collate_fn(batch):
@@ -181,7 +181,7 @@ for epoch in range(1, args.epochs + 1):
         next_obs = list(next_obs)
         low_descs = list(low_descs)
         task_desc = list(task_desc)
-        
+      
         optimizer.zero_grad()
 
         if args.decoder:

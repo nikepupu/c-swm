@@ -173,7 +173,7 @@ class ThorTransitionsDataset(data.Dataset):
                 buffer
         """
         self.data_root = path
-        self.dirs = os.listdir(path)[30000:]
+        self.dirs = os.listdir(path)
         
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
         with open('/home/nikepupu/create_dataset/actions.pickle', 'rb') as handle:
@@ -219,8 +219,12 @@ class ThorTransitionsDataset(data.Dataset):
         goal_encoding = self.tokenizer(task_desc[0])['input_ids']
         instruction_encoding = self.tokenizer(low_descs[0] )['input_ids']
        
-        
-        return pre_image, self.actions.index(a), post_image, instruction_encoding, goal_encoding 
+        try:
+            action_index = self.actions.index(a)
+        except:
+            action_index = 0
+            
+        return pre_image, action_index, post_image, instruction_encoding, goal_encoding 
     
 class PathDataset(data.Dataset):
     """Create dataset of {(o_t, a_t)}_{t=1:N} paths from replay buffer.
