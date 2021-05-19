@@ -176,7 +176,7 @@ class ThorTransitionsDataset(data.Dataset):
         self.dirs = os.listdir(path)
         
         self.tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
-        with open('/home/nikepupu/create_dataset/actions.pickle', 'rb') as handle:
+        with open('/home/steven/actions.pickle', 'rb') as handle:
             self.actions = pickle.load(handle)
         # Build table for conversion between linear idx -> episode/step idx
         self.cnt = 0

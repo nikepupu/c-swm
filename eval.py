@@ -47,7 +47,7 @@ device = torch.device('cuda' if args.cuda else 'cpu')
 
 # dataset = utils.PathDataset(
 #     hdf5_file=args.dataset, path_length=args_eval.num_steps)
-dataset = utils.ThorTransitionsDataset('/home/nikepupu/create_dataset/dataset')
+dataset = utils.ThorTransitionsDataset('/home/steven/dataset_train')
 eval_loader = data.DataLoader(
     dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
 

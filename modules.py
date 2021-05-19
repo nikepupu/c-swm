@@ -44,7 +44,7 @@ class ContrastiveSWM(nn.Module):
         
         self.lstm = nn.LSTM(768,256, 2 ,batch_first=True, bidirectional=True)
         self.fc = nn.Linear(hidden_dim*2, hidden_dim)
-        self.embed = nn.Embedding(50000, 768)
+        self.embed = nn.Embedding(60000, 768)
         
         
         self.pos_loss = 0
