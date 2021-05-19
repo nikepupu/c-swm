@@ -10,7 +10,7 @@ import numpy as np
 from collections import defaultdict
 
 import modules
-
+from torch.nn.utils.rnn import pad_sequence
 torch.backends.cudnn.deterministic = True
 
 def collate_fn(batch):
@@ -57,7 +57,7 @@ device = torch.device('cuda' if args.cuda else 'cpu')
 
 # dataset = utils.PathDataset(
 #     hdf5_file=args.dataset, path_length=args_eval.num_steps)
-dataset = utils.ThorTransitionsDataset('/home/steven/dataset_train')
+dataset = utils.ThorTransitionsDataset('/home/steven/dataset_validation_action')
 eval_loader = data.DataLoader(
     dataset, batch_size=args.batch_size, collate_fn = collate_fn, shuffle=False, num_workers=4)
 
@@ -99,14 +99,20 @@ with torch.no_grad():
         obs = obs.cuda()
         actions = actions.cuda()
         next_obs = next_obs.cuda()
-        # if observations[0].size(0) != args.batch_size:
+        low_descs = low_descs.cuda()
+        task_desc = task_desc.cuda()
+
+        language_encoding1, _ = model.lstm(model.embed(task_desc) )
+        language_encoding2, _ = model.lstm(model.embed(low_descs))
+        language_encoding = language_encoding1[:,-1,:] + language_encoding2[:,-1,:]
+       # if observations[0].size(0) != args.batch_size:
         #     continue
 
         # obs = observations[0]
         # next_obs = observations[-1]
 
-        state = model.obj_encoder(model.obj_extractor(obs))
-        next_state = model.obj_encoder(model.obj_extractor(next_obs))
+        state = model.obj_encoder(model.obj_extractor(obs), language_encoding)
+        next_state = model.obj_encoder(model.obj_extractor(next_obs), language_encoding)
         
         pred_state = state
         for i in range(args_eval.num_steps):
