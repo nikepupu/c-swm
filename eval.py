@@ -59,7 +59,7 @@ device = torch.device('cuda' if args.cuda else 'cpu')
 
 # dataset = utils.PathDataset(
 #     hdf5_file=args.dataset, path_length=args_eval.num_steps)
-dataset = utils.ThorTransitionsDataset('/home/steven/dataset_validation_action')
+dataset = utils.ThorTransitionsDataset('/home/steven/dataset_validation_unseen_action')
 eval_loader = data.DataLoader(
     dataset, batch_size=args.batch_size, shuffle=False, collate_fn = collate_fn, num_workers=4)
 
@@ -101,14 +101,21 @@ with torch.no_grad():
         obs = obs.cuda()
         actions = actions.cuda()
         next_obs = next_obs.cuda()
+        low_descs = low_descs.cuda()
+        task_desc = task_desc.cuda()
+
+        language_encoding1 = model.roberta(task_desc).pooler_output
+        language_encoding2 = model.roberta(low_descs).pooler_output
+        language_encoding = language_encoding1 + language_encoding2
+        
         # if observations[0].size(0) != args.batch_size:
         #     continue
 
         # obs = observations[0]
         # next_obs = observations[-1]
 
-        state = model.obj_encoder(model.obj_extractor(obs))
-        next_state = model.obj_encoder(model.obj_extractor(next_obs))
+        state = model.obj_encoder(model.obj_extractor(obs), language_encoding)
+        next_state = model.obj_encoder(model.obj_extractor(next_obs), language_encoding)
         
         pred_state = state
         for i in range(args_eval.num_steps):
