@@ -122,7 +122,7 @@ class ContrastiveSWM(nn.Module):
         state = self.obj_encoder(objs, language_encoding)
         # next_state = self.obj_encoder(next_objs)
         
-        next_state = self.obj_encoder(next_objs, language_encoding)
+        next_state = self.obj_encoder(next_objs)
         # Sample negative state across episodes at random
         
         batch_size = state.size(0)
